@@ -1,6 +1,6 @@
 #include<SPI.h>
 #include<MFRC522.h>
-
+#include <EEPROM.h>
 
 /*
  *	Defines pins used to communicated with RFID reader.
@@ -35,6 +35,15 @@
  */
 #define CARD_ADD_DEL_READY_SIGNAL_DURATION 500
 
+/*
+ *      Specifies on which address do values in database begin
+ */
+#define EEPROM_BEGIN 1
+
+/*
+ *      Specifies on which address is size of database stored
+ */
+#define EEPROM_SIZE 0
 
 
 
@@ -42,10 +51,19 @@
 /*
  *	Structure to store RFID card ID. 
  */
-typedef struct RfidCard {
+typedef struct card {
   byte id[4];
 } card;
 
+bool cardEqual(struct card* x, struct card* y) {
+    for(int i = 0; i < 4; ++i)
+      if(x->id[i] != y->id[i])
+        return false;
+        
+    return true;
+}
+
+byte db_size = 0;
 
 
 
@@ -58,9 +76,9 @@ MFRC522 rfid(SDA_PIN, RST_PIN);
 /*
  *	
  */
-card addCard;
-card deleteCard;
-card userCard;
+struct card addingCard = { { 0x9A, 0x19, 0x4B, 0x06 } }; //green tag from box
+struct card deletingCard = { { 0x2A, 0x38, 0xB8, 0x0A } }; //red tag from box
+struct card userCard;
 
 
 
@@ -72,7 +90,7 @@ card userCard;
  *	@param c - card instance to write info from RFID card into
  *	@return - indicates whether read has been successful
  */
-bool readCard(card* c)
+bool readCard(struct card* c)
 {
   if ( ! rfid.PICC_IsNewCardPresent() )
 	return false;
@@ -106,9 +124,19 @@ bool readCard(card* c)
  *	@param - card to be checked
  *	@return - true if card is in database, false otherwise
  */
-bool checkCard(card* c)
+bool checkCard(struct card* c)
 {
-
+  struct card card;
+  
+  for(int i = 0; i < db_size; ++i){
+    card.id[0] = EEPROM.read(EEPROM_BEGIN + i * 4);
+    card.id[1] = EEPROM.read(EEPROM_BEGIN + i * 4 + 1);
+    card.id[2] = EEPROM.read(EEPROM_BEGIN + i * 4 + 2);
+    card.id[3] = EEPROM.read(EEPROM_BEGIN + i * 4 + 3);
+    if( cardEqual( (struct card*) &card, (struct card*) c) )
+      return true;
+  }
+  return false;
 }
 
 
@@ -117,9 +145,15 @@ bool checkCard(card* c)
  *	Adds card to database.
  *	@param - card to be added
  */
-void addCard(card* c)
-{
+void addCard(struct card* c)
+{  
+   EEPROM.write(EEPROM_BEGIN + db_size * 4, c->id[0]);
+   EEPROM.write(EEPROM_BEGIN + db_size * 4 + 1, c->id[1]);
+   EEPROM.write(EEPROM_BEGIN + db_size * 4 + 2, c->id[2]);
+   EEPROM.write(EEPROM_BEGIN + db_size * 4 + 3, c->id[3]);
 
+   db_size++;
+   EEPROM.write(EEPROM_SIZE, db_size);
 }
 
 
@@ -128,9 +162,22 @@ void addCard(card* c)
  *	Deletes card from database.
  *	@param - card to be deleted
  */
-void deleteCard(card* c)
+void deleteCard(struct card* c)
 {
-
+    struct card card;
+  
+    for(int i = 0; i < db_size; ++i){
+      card.id[0] = EEPROM.read(EEPROM_BEGIN + i * 4);
+      card.id[1] = EEPROM.read(EEPROM_BEGIN + i * 4 + 1);
+      card.id[2] = EEPROM.read(EEPROM_BEGIN + i * 4 + 2);
+      card.id[3] = EEPROM.read(EEPROM_BEGIN + i * 4 + 3);
+      if( cardEqual( (struct card*) &card, (struct card*) c) )
+         EEPROM.write(EEPROM_BEGIN + i * 4, 0);
+         EEPROM.write(EEPROM_BEGIN + i * 4 + 1, 0);
+         EEPROM.write(EEPROM_BEGIN + i * 4 + 2, 0);
+         EEPROM.write(EEPROM_BEGIN + i * 4 + 3, 0);
+         return;
+    }
 }
 
 
@@ -140,7 +187,11 @@ void deleteCard(card* c)
  *	Turns the green LED on while the lock is unlocked.
  */
 void unlockDoor(int miliseconds)
-{
+{        
+        for(int i = 0; i < 5; ++i){
+		flashGreen(100);
+                delay(100);
+        }
 	//lock.unlock();
 	flashGreen(miliseconds);
 	//lock.lock();
@@ -153,8 +204,10 @@ void unlockDoor(int miliseconds)
  */
 void accessDenied()
 {
-	for(int i = 0; i < 3; ++i)
+	for(int i = 0; i < 5; ++i){
 		flashRed(100);
+                delay(100);
+        }
 }
 
 
@@ -164,6 +217,7 @@ void printHex(byte* buffer, byte bufferSize) {
 	Serial.print(buffer[i] < 0x10 ? " 0" : " ");
 	Serial.print(buffer[i], HEX);
   }
+  Serial.println();
 }
 
 
@@ -217,85 +271,36 @@ void setup()
   pinMode(RED_PIN, OUTPUT);
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
+  
+  //EEPROM.write(0, 0);
+  db_size = EEPROM.read(EEPROM_SIZE);
 }
 
 
 
 void loop() 
 {
-
-  /*
-  priblizna struktura mainu:
   
   if ( readCard(&userCard) ) {
-	if ( readCard == addCard ) {
+        printHex( (byte*) &userCard.id, 4);
+	if ( cardEqual( (struct card*) &userCard, (struct card*) &addingCard) ) {
 		flashBlue(CARD_ADD_DEL_READY_SIGNAL_DURATION);
 	  	while( ! readCard(&userCard) );
 	  	addCard(&userCard);
 	  	flashGreen(CARD_ADD_LED_FLASH_DURATION);
-	} else if ( readCard == deleteCard) {
+	} else if ( cardEqual( (struct card*) &userCard, (struct card*) &deletingCard) ) {
 		flashBlue(CARD_ADD_DEL_READY_SIGNAL_DURATION);
 	  	while( ! readCard(&userCard) );
-	  	deleteCard(&userCard);
+                deleteCard(&userCard);
 	  	flashGreen(CARD_DEL_LED_FLASH_DURATION);
 	} else {
-	  	if ( checkCard(&readCard) )
+	  	if ( checkCard( (struct card*) &userCard) )
 			unlockDoor(DOOR_UNLOCK_DURATION * 1000);
 	  	else 
 			accessDenied();
 	}
   }
 
-
-  */
-  
-	/*
-  if ( ! rfid.PICC_IsNewCardPresent())
-	return;
-
-  if ( ! rfid.PICC_ReadCardSerial())
-	return;
-  
-  flashGreen(250);
-  
-  Serial.print("PICC type: ");
-  MFRC522::PICC_Type piccType = rfid.PICC_GetType(rfid.uid.sak);
-  Serial.println(rfid.PICC_GetTypeName(piccType));
-
-  if (piccType != MFRC522::PICC_TYPE_MIFARE_MINI &&  
-	  piccType != MFRC522::PICC_TYPE_MIFARE_1K &&
-	  piccType != MFRC522::PICC_TYPE_MIFARE_4K) {
-	Serial.println("Your tag is not of type MIFARE Classic.");
-	return;
-  }
-  
-  if(rfid.uid.uidByte[0] == 0xA0 &&
-	 rfid.uid.uidByte[1] == 0x6B &&
-	 rfid.uid.uidByte[2] == 0x32 &&
-	 rfid.uid.uidByte[3] == 0x52)
-	Serial.println("BLUE TAG!");
-
-  if (rfid.uid.uidByte[0] != cardCode[0] || 
-	  rfid.uid.uidByte[1] != cardCode[1] || 
-	  rfid.uid.uidByte[2] != cardCode[2] || 
-	  rfid.uid.uidByte[3] != cardCode[3] ) {
-	Serial.print("New card. ");
-
-	for (byte i = 0; i < 4; i++) {
-	  cardCode[i] = rfid.uid.uidByte[i];
-	}
-   
-	Serial.print("NUID: ");
-	printHex(rfid.uid.uidByte, rfid.uid.size);
-	Serial.println();
-  }
-  else Serial.println("Card read previously.");
-  
-  Serial.println();
-
-  rfid.PICC_HaltA();
-  rfid.PCD_StopCrypto1();
-  */
 }
  
 
