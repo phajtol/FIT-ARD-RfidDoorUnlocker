@@ -1,6 +1,6 @@
 #include<SPI.h>
 #include<MFRC522.h>
-#include <EEPROM.h>
+#include<EEPROM.h>
 
 /*
  *	Defines pins used to communicated with RFID reader.
@@ -55,6 +55,12 @@ typedef struct card {
   byte id[4];
 } card;
 
+
+/*
+ *      Method used to compare two cards if they are equal.
+ *      @param - cards to be compared
+ *      @return - true if card are equal (their IDs are the same), false otherwise
+ */
 bool cardEqual(struct card* x, struct card* y) {
     for(int i = 0; i < 4; ++i)
       if(x->id[i] != y->id[i])
@@ -63,6 +69,9 @@ bool cardEqual(struct card* x, struct card* y) {
     return true;
 }
 
+/*
+ *      Database size.
+ */ 
 byte db_size = 0;
 
 
@@ -272,6 +281,7 @@ void setup()
   pinMode(GREEN_PIN, OUTPUT);
   pinMode(BLUE_PIN, OUTPUT);
   
+  //uncomment to reset database on startup
   //EEPROM.write(0, 0);
   db_size = EEPROM.read(EEPROM_SIZE);
 }
