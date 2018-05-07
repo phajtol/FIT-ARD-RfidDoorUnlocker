@@ -387,7 +387,30 @@ void loop()
   	if( (serialInput = Serial.readString()) != "" ){
 		flashBlue(100);
 
-    	if(serialInput == "CARD_ADD"){
+		if(serialInput == "CARD_CHECK"){
+      	Serial.println("Waiting for card to be checked...");
+
+      	while( (serialInput = Serial.readString()) == "" ){
+        		flashBlue(100);
+        		delay(100);
+      	}
+
+      	if( parseCard( &userCard, serialInput) ){
+        		Serial.print("Card (");
+        		printHex( (byte*) &userCard.id, CARD_ID_LENGTH);
+        		Serial.print(") "); 
+
+        		if( checkCard(&userCard) ){
+        			Serial.print("stored.");
+        		} else {
+        			Serial.print("not stored.");
+        		}
+      	} else {
+        		Serial.println("Invalid card string, try again.");
+      	}
+    	}
+
+    	else if(serialInput == "CARD_ADD"){
       	Serial.println("Waiting for card to be added...");
 
       	while( (serialInput = Serial.readString()) == "" ){
@@ -404,7 +427,7 @@ void loop()
         			addCard(&userCard);
         			Serial.print("added.");
         		} else {
-        			Serial.print(" already stored.");
+        			Serial.print("already stored.");
         		}
       	} else {
         		Serial.println("Invalid card string, try again.");
@@ -428,7 +451,7 @@ void loop()
         			deleteCard(&userCard);
         			Serial.println("deleted.");
         		} else {
-        			Serial.println(" not stored yet.")
+        			Serial.println("not stored yet.")
         		}
       	} else {
         		Serial.println("Invalid card string, try again.");
