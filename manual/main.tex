@@ -1,0 +1,132 @@
+\documentclass[a4paper]{article}
+
+%% Language and font encodings
+\usepackage[english]{babel}
+\usepackage[utf8x]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{courier}
+
+%% Sets page size and margins
+\usepackage[a4paper,top=2cm,bottom=2cm,left=2cm,right=2cm,marginparwidth=1.75cm]{geometry}
+
+%% Useful packages
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage[colorinlistoftodos]{todonotes}
+\usepackage[colorlinks=true, allcolors=blue]{hyperref}
+
+\title{Model dverí s prístupom na RFID kartu - užívateľský manuál}
+\author{Peter Hajtol}
+
+\begin{document}
+\maketitle
+
+
+
+
+\section{Zapojenie}
+
+Zapojte priložený adaptér do systému a elektriky a počkajte pár sekúnd kým sa systém naštartuje.
+
+
+
+
+\section{Používanie}
+
+\subsection{Overovanie kariet}
+Priložte kartu k čítačke. Ak je karta uložená v systéme, zabliká zelené svetlo a dvere sa otvoria. Inak zabliká červené svetlo a dvere ostanú zatvorené.
+
+\subsection{Pridanie karty do systému}
+Pre pridanie karty do systému priložte pridávaciu kartu k čítačke. Po načítaní pridávacej karty začne blikať modrá kontrolka, vyzývajúca na priloženie karty, ktorá má byť pridaná. Po prečítaní karty na pridanie sa rozsvieti zelená kontrolka na 1 sekundu, signalizujúca úspešne pridanie novej karty do systému.
+\\\\
+\textit{Pozn.: Pridanie karty, ktorá už je evidovaná v systéme nie je povolené. Po priložení takej karty zabliká červená kontrolka a databáza ostane v nezmenenom stave.}
+
+\subsection{Odstránenie karty zo systému}
+Pre odstránenie karty zo systému priložte mazaciu kartu k čítačke. Po jej načítaní začne blikať modrá kontrolka, vyzývajúca na priloženie karty, ktorá má byť odstránená. Po priložení karty na odstránenie sa rozsvieti zelená kontrolka na 1 sekundu, signalizujúca úspešne odstránenie karty zo systému.
+\\\\
+\textit{Pozn.: Odstránenie karty, ktorá predtým nebola pridaná, bude signalizované blikaním červenej kontrolky. Databáza v takomto prípade ostane v pôvodnom stave.}
+
+
+
+
+\section{Konfigurácia pomocou sériovej linky}
+Pripojte systém k počítaču MicroUSB káblom a spusťte na počítači softvér na komunikáciu cez sériovu linku. Funkčnosť spojenia môžete otestovať zadaním náhodného reťazca, napríklad \texttt{ahoj}. Ak spojenie funguje, systém odpovie \texttt{Unknown command, please try again.}
+\\\\
+Príklad testovania komunikácie (\texttt{U} - užívateľ, \texttt{S} - systém):\\
+\texttt{U: ahoj}\\
+\texttt{S: Unknown command, please try again.}\\
+
+\subsection{Overenie karty}
+Na overenie karty použite príkaz \texttt{CARD\_CHECK}. Na príkaz systém odpovie správou \texttt{Waiting for card to be checked...} a blikaním modrej kontrolky. Identifikátor karty na overenie zadávajte cez sériovu linku, ako 4 bajty, zapísané hexadecimálne a oddelené pomlčkou. Po odoslaní platného identifáktora odpovie systém \texttt{Card (0A-1B-2C-3D) stored.} ak je karta uložená, alebo \texttt{Card (0A-1B-2C-3D) not stored.} ak nie je uložená. V prípade že ste zadali neplatný identifikátor, systém napíše \texttt{Invalid card string, try again.}
+\\\\
+Príklad identifikátora karty: \texttt{0A-1B-2C-3D}.
+\\\\
+Príklad overenia karty \texttt{0A-1B-2C-3D} (\texttt{U} - užívateľ, \texttt{S} - systém):\\
+\texttt{U: CARD\_CHECK}\\
+\texttt{S: Waiting for card to be checked...}\\
+\texttt{U: 0A-1B-2C-3D}\\
+\texttt{S: Card (0A-1B-2C-3D) stored.}\\
+
+\subsection{Pridanie karty do systému}
+Zadajte príkaz \texttt{CARD\_ADD} a počkajte kým Vás systém vyzve na zadanie identifikátora karty. Výzva sa prejaví správou \texttt{Waiting for card to be added...} na sériovej linke a blikaním modrej kontrolky na zariadení. Identifikátor karty zadávajte cez sériovu linku, ako 4 bajty, zapísané hexadecimálne a oddelené pomlčkou. Po odoslaní identifikátora karty systém odpovie buď \texttt{Card (0A-1B-2C-3D) added.} po úspešnom pridaní karty (v zátvorke bude Vami zadaný identifikátor karty) alebo \texttt{Invalid card string, try again.} ak nebol identifikátor karty v požadovanom formáte. V prípade že ste zadali platný identifikátor karty, ktorá sa ale už nachádza v databáze, sytém odpovie správou \texttt{Card (0A-1B-2C-3D) already stored.} (s Vaším identifikátorom karty).
+\\\\
+Príklad identifikátora karty: \texttt{0A-1B-2C-3D}.
+\\\\
+Príklad pridania karty \texttt{0A-1B-2C-3D} (\texttt{U} - užívateľ, \texttt{S} - systém):\\
+\texttt{U: CARD\_ADD}\\
+\texttt{S: Waiting for card to be added...}\\
+\texttt{U: 0A-1B-2C-3D}\\
+\texttt{S: Card (0A-1B-2C-3D) added.}\\
+
+\subsection{Odstránenie karty zo systému}
+Zadajte príkaz \texttt{CARD\_DELETE} a počkajte kým Vás systém vyzve na zadanie identifikátora karty. Výzva sa prejaví správou \texttt{Waiting for card to be deleted...} na sériovej linke a blikaním modrej kontrolky na zariadení. Identifikátor karty zadávajte cez sériovu linku, ako 4 bajty, zapísané hexadecimálne a oddelené pomlčkou. Po odoslaní identifikátora karty systém odpovie buď \texttt{Card (0A-1B-2C-3D) deleted.} po úspešnom odstránení karty (v zátvorke bude Vami zadaný identifikátor karty) alebo \texttt{Invalid card string, try again.} ak nebol identifikátor karty v požadovanom formáte. V prípade že ste zadali platný identifikátor karty, ktorá sa ale nenachádza v databáze, sytém odpovie správou \texttt{Card (0A-1B-2C-3D) not stored yet.} (s Vaším identifikátorom karty).
+\\\\
+Príklad identifikátora karty: \texttt{0A-1B-2C-3D}.
+\\\\
+Príklad odstránenia karty \texttt{0A-1B-2C-3D} (\texttt{U} - užívateľ, \texttt{S} - systém):\\
+\texttt{U: CARD\_DELETE}\\
+\texttt{S: Waiting for card to be deleted...}\\
+\texttt{U: 0A-1B-2C-3D}\\
+\texttt{S: Card (0A-1B-2C-3D) deleted.}\\
+
+\subsection{Nastavenie pridávacej karty}
+Zadajte príkaz \texttt{CARD\_DEFINE\_ADDING} a počkajte kým Vás systém vyzve na zadanie identifikátora karty. Výzva sa prejaví správou \texttt{Waiting for card to be set as adding card...} na sériovej linke a blikaním modrej kontrolky na zariadení. Identifikátor karty zadávajte cez sériovu linku, ako 4 bajty, zapísané hexadecimálne a oddelené pomlčkou. Po odoslaní identifikátora karty systém odpovie buď \texttt{Card (0A-1B-2C-3D) set as adding card.} po úspešnom nastavení pridávacej karty (v zátvorke bude Vami zadaný identifikátor karty) alebo \texttt{Invalid card string, try again.} ak nebol identifikátor karty v požadovanom formáte. 
+\\\\
+Príklad identifikátora karty: \texttt{0A-1B-2C-3D}.
+\\\\
+Príklad nastavenia pridávacej karty \texttt{0A-1B-2C-3D} (\texttt{U} - užívateľ, \texttt{S} - systém):\\
+\texttt{U: CARD\_DEFINE\_ADDING}\\
+\texttt{S: Waiting for card to be set as adding card...}\\
+\texttt{U: 0A-1B-2C-3D}\\
+\texttt{S: Card (0A-1B-2C-3D) set as adding card.}\\
+\\
+\textit{Pozn.: Pridávaciu kartu je potrebné nastaviť po každom reštarte systému.}
+
+\subsection{Nastavenie mazacej karty}
+Zadajte príkaz \texttt{CARD\_DEFINE\_DELETING} a počkajte kým Vás systém vyzve na zadanie identifikátora karty. Výzva sa prejaví správou \texttt{Waiting for card to be set as deleting card...} na sériovej linke a blikaním modrej kontrolky na zariadení. Identifikátor karty zadávajte cez sériovu linku, ako 4 bajty, zapísané hexadecimálne a oddelené pomlčkou. Po odoslaní identifikátora karty systém odpovie buď \texttt{Card (0A-1B-2C-3D) set as deleting card.} po úspešnom nastavení mazacej karty (v zátvorke bude Vami zadaný identifikátor karty) alebo \texttt{Invalid card string, try again.} ak nebol identifikátor karty v požadovanom formáte. 
+\\\\
+Príklad identifikátora karty: \texttt{0A-1B-2C-3D}.
+\\\\
+Príklad nastavenia mazacej karty \texttt{0A-1B-2C-3D} (\texttt{U} - užívateľ, \texttt{S} - systém):\\
+\texttt{U: CARD\_DEFINE\_DELETING}\\
+\texttt{S: Waiting for card to be set as deleting card...}\\
+\texttt{U: 0A-1B-2C-3D}\\
+\texttt{S: Card (0A-1B-2C-3D) set as deleting card.}\\
+\\
+\textit{Pozn.: Mazaciu kartu je potrebné nastaviť po každom reštarte systému.}
+
+\subsection{Resetovanie databázy kariet}
+Reset databázy spustite príkazom \texttt{RESET\_DB} cez sériovú linku. Po úspešnom resete odpovie systém hláškou \texttt{Database has been reset.}
+
+%You can make lists with automatic numbering \dots
+%\begin{enumerate}
+%\item Like this,
+%\item and like this.
+%\end{enumerate}
+%\dots or bullet points \dots
+%\begin{itemize}
+%\item Like this,
+%\item and like this.
+%\end{itemize}
+
+\end{document}
