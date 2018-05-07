@@ -400,11 +400,10 @@ void loop()
         		printHex( (byte*) &userCard.id, CARD_ID_LENGTH);
         		Serial.print(") "); 
 
-        		if( checkCard(&userCard) ){
-        			Serial.print("stored.");
-        		} else {
-        			Serial.print("not stored.");
-        		}
+        		if( ! checkCard(&userCard) )
+        			Serial.print("not ");
+        		
+        		Serial.println("stored.");
       	} else {
         		Serial.println("Invalid card string, try again.");
       	}
