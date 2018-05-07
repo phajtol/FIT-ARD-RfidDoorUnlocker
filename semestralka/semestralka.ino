@@ -90,11 +90,14 @@ MFRC522 rfid(SDA_PIN, RST_PIN);
 /*
  *	
  */
-struct card addingCard = { { 0x9A, 0x19, 0x4B, 0x06 } }; //green tag from box
-struct card deletingCard = { { 0x2A, 0x38, 0xB8, 0x0A } }; //red tag from box
+struct card addingCard = { { 0x00, 0x00, 0x00, 0x00 } };
+struct card deletingCard = { { 0x00, 0x00, 0x00, 0x00 } };
+/*struct card addingCard = { { 0x9A, 0x19, 0x4B, 0x06 } }; //green tag from box
+struct card deletingCard = { { 0x2A, 0x38, 0xB8, 0x0A } }; //red tag from box*/
 struct card userCard;
+struct card backup;
 
-
+String serialInput;
 
 
 
@@ -270,6 +273,37 @@ void flashBlue(int miliseconds)
 
 
 
+/*
+ *	Creates card struct from given String.
+ *      Warning: may leave card in inconsistent state if failed
+ *	@param - card type output parameter
+ *      @param - String to parse from
+ *      @return - true if successful, false otherwise
+ */
+bool parseCard(struct card* card, String input)
+{
+  for(int i = 0; i < CARD_ID_LENGTH; ++i)
+    card->id[i] = 0;
+  
+  int stringPos = 0;
+  for(int i = 0; i < CARD_ID_LENGTH; ++i){
+     if(input[stringPos] >= 'A' && input[stringPos] <= 'F') card->id[i] += (input[stringPos] - 'A' + 10) * 16;
+     else if(input[stringPos] >= '0' && input[stringPos] <= '9') card->id[i] += (input[stringPos] - '0') * 16;
+     else {Serial.print("parsefail, i = ");Serial.print(i);Serial.print(", strpos = ");Serial.println(stringPos);return false;}
+     
+     stringPos++;
+     
+     if(input[stringPos] >= 'A' && input[stringPos] <= 'F') card->id[i] += input[stringPos] - 'A' + 10;
+     else if(input[stringPos] >= '0' && input[stringPos] <= '9') card->id[i] += input[stringPos] - '0';
+     else {Serial.print("parsefail, i = ");Serial.print(i);Serial.print(", strpos = ");Serial.println(stringPos);return false;}
+     
+     stringPos += 2;
+  }
+  
+  return true;
+}
+
+
 
 
 void setup() 
@@ -322,6 +356,81 @@ void loop()
 			accessDenied();
                 }
 	}
+  }
+  
+  if( (serialInput = Serial.readString()) != "" ){
+    flashBlue(100);
+    if(serialInput == "CARD_ADD"){
+      Serial.println("Waiting for card to be added...");
+      while( (serialInput = Serial.readString()) == "" ){
+        flashBlue(100);
+        delay(100);
+      }
+      if( parseCard( &userCard, serialInput) ){
+        addCard(&userCard);
+        Serial.print("Card (");
+        printHex( (byte*) &userCard.id, CARD_ID_LENGTH);
+        Serial.println(") added.");
+      } else {
+        Serial.println("Invalid card string, try again.");
+      }
+    } else if(serialInput == "CARD_DELETE"){
+      Serial.println("Waiting for card to be deleted...");
+      while( (serialInput = Serial.readString()) == "" ){
+        flashBlue(100);
+        delay(100);
+      }
+      if( parseCard( &userCard, serialInput) ){
+        deleteCard(&userCard);
+        Serial.print("Card (");
+        printHex( (byte*) &userCard.id, CARD_ID_LENGTH);
+        Serial.println(") deleted.");
+      } else {
+        Serial.println("Invalid card string, try again.");
+      }
+    } else if(serialInput == "CARD_DEFINE_ADDING"){
+      for(int i = 0; i < CARD_ID_LENGTH; ++i)
+  	backup.id[i] = addingCard.id[i];
+      
+      Serial.println("Waiting for card to be set as adding card...");
+      while( (serialInput = Serial.readString()) == "" ){
+        flashBlue(100);
+        delay(100);
+      }
+      if( parseCard( &addingCard, serialInput) ){
+        Serial.print("Card (");
+        printHex( (byte*) &addingCard.id, CARD_ID_LENGTH);
+        Serial.println(") set as adding card.");
+      } else {
+        for(int i = 0; i < CARD_ID_LENGTH; ++i)
+  	  addingCard.id[i] = backup.id[i];
+        Serial.println("Invalid card string, try again.");
+      }
+    } else if(serialInput == "CARD_DEFINE_DELETING"){
+      for(int i = 0; i < CARD_ID_LENGTH; ++i)
+  	backup.id[i] = deletingCard.id[i];
+      
+      Serial.println("Waiting for card to be set as deleting card...");
+      while( (serialInput = Serial.readString()) == "" ){
+        flashBlue(100);
+        delay(100);
+      }
+      if( parseCard( &deletingCard, serialInput) ){
+        Serial.print("Card (");
+        printHex( (byte*) &deletingCard.id, CARD_ID_LENGTH);
+        Serial.println(") set as deleting card.");
+      } else {
+        for(int i = 0; i < CARD_ID_LENGTH; ++i)
+  	  deletingCard.id[i] = backup.id[i];
+        Serial.println("Invalid card string, try again.");
+      }
+    } else if(serialInput == "RESET_DB"){
+      db_size = 0;
+      EEPROM.write(EEPROM_SIZE, db_size);
+      Serial.println("Database has been reset.");
+    } else {
+      Serial.println("Unknown command, please try again.");
+    }
   }
 
 }
