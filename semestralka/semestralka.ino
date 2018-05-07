@@ -45,6 +45,11 @@
  */
 #define EEPROM_SIZE 0
 
+/*
+ *      Specifies length of card identifier (in bytes)
+ */
+#define CARD_ID_LENGTH 4
+
 
 
 
@@ -52,7 +57,7 @@
  *	Structure to store RFID card ID. 
  */
 typedef struct card {
-  byte id[4];
+  byte id[CARD_ID_LENGTH];
 } card;
 
 
@@ -62,10 +67,10 @@ typedef struct card {
  *      @return - true if card are equal (their IDs are the same), false otherwise
  */
 bool cardEqual(struct card* x, struct card* y) {
-    for(int i = 0; i < 4; ++i)
+    for(int i = 0; i < CARD_ID_LENGTH; ++i)
       if(x->id[i] != y->id[i])
         return false;
-        
+      
     return true;
 }
 
@@ -116,7 +121,7 @@ bool readCard(struct card* c)
 	return false;
   }
 
-  for(int i = 0; i < 4; ++i)
+  for(int i = 0; i < CARD_ID_LENGTH; ++i)
   	c->id[i] = rfid.uid.uidByte[i];
 
   //close RFID reader resources
@@ -129,7 +134,7 @@ bool readCard(struct card* c)
 
 
 /*
- *	Checks whether card ID is stored in database.
+ *	Checks whether given card is stored in database.
  *	@param - card to be checked
  *	@return - true if card is in database, false otherwise
  */
@@ -138,13 +143,13 @@ bool checkCard(struct card* c)
   struct card card;
   
   for(int i = 0; i < db_size; ++i){
-    card.id[0] = EEPROM.read(EEPROM_BEGIN + i * 4);
-    card.id[1] = EEPROM.read(EEPROM_BEGIN + i * 4 + 1);
-    card.id[2] = EEPROM.read(EEPROM_BEGIN + i * 4 + 2);
-    card.id[3] = EEPROM.read(EEPROM_BEGIN + i * 4 + 3);
+    for(int j = 0; j < CARD_ID_LENGTH; ++j)
+      card.id[j] = EEPROM.read(EEPROM_BEGIN + i * 4 + j);
+    
     if( cardEqual( (struct card*) &card, (struct card*) c) )
       return true;
   }
+  
   return false;
 }
 
@@ -156,10 +161,8 @@ bool checkCard(struct card* c)
  */
 void addCard(struct card* c)
 {  
-   EEPROM.write(EEPROM_BEGIN + db_size * 4, c->id[0]);
-   EEPROM.write(EEPROM_BEGIN + db_size * 4 + 1, c->id[1]);
-   EEPROM.write(EEPROM_BEGIN + db_size * 4 + 2, c->id[2]);
-   EEPROM.write(EEPROM_BEGIN + db_size * 4 + 3, c->id[3]);
+  for(int i = 0; i < CARD_ID_LENGTH; ++i)
+    EEPROM.write(EEPROM_BEGIN + db_size * 4 + i, c->id[i]);
 
    db_size++;
    EEPROM.write(EEPROM_SIZE, db_size);
@@ -174,18 +177,16 @@ void addCard(struct card* c)
 void deleteCard(struct card* c)
 {
     struct card card;
-  
+    
     for(int i = 0; i < db_size; ++i){
-      card.id[0] = EEPROM.read(EEPROM_BEGIN + i * 4);
-      card.id[1] = EEPROM.read(EEPROM_BEGIN + i * 4 + 1);
-      card.id[2] = EEPROM.read(EEPROM_BEGIN + i * 4 + 2);
-      card.id[3] = EEPROM.read(EEPROM_BEGIN + i * 4 + 3);
-      if( cardEqual( (struct card*) &card, (struct card*) c) )
-         EEPROM.write(EEPROM_BEGIN + i * 4, 0);
-         EEPROM.write(EEPROM_BEGIN + i * 4 + 1, 0);
-         EEPROM.write(EEPROM_BEGIN + i * 4 + 2, 0);
-         EEPROM.write(EEPROM_BEGIN + i * 4 + 3, 0);
+      for(int j = 0; j < CARD_ID_LENGTH; ++j)
+        card.id[j] = EEPROM.read(EEPROM_BEGIN + i * 4 + j);
+     
+      if( cardEqual( (struct card*) &card, (struct card*) c) ){
+         for(int j = 0; j < CARD_ID_LENGTH; ++j)
+           EEPROM.write(EEPROM_BEGIN + i * 4 + j, 0);
          return;
+      }
     }
 }
 
@@ -223,10 +224,10 @@ void accessDenied()
 
 void printHex(byte* buffer, byte bufferSize) {
   for (byte i = 0; i < bufferSize; i++) {
-	Serial.print(buffer[i] < 0x10 ? " 0" : " ");
+        if(i != 0) Serial.print("-");
+	if(buffer[i] < 0x10) Serial.print("0");
 	Serial.print(buffer[i], HEX);
   }
-  Serial.println();
 }
 
 
@@ -292,22 +293,34 @@ void loop()
 {
   
   if ( readCard(&userCard) ) {
-        printHex( (byte*) &userCard.id, 4);
+        Serial.print("Card connected (");
+        printHex( (byte*) &userCard.id, CARD_ID_LENGTH);
+        Serial.print("), ");
+        
 	if ( cardEqual( (struct card*) &userCard, (struct card*) &addingCard) ) {
+                Serial.print("adding: ");
 		flashBlue(CARD_ADD_DEL_READY_SIGNAL_DURATION);
 	  	while( ! readCard(&userCard) );
+                printHex( (byte*) &userCard.id, CARD_ID_LENGTH);
 	  	addCard(&userCard);
+                Serial.println(" added.");
 	  	flashGreen(CARD_ADD_LED_FLASH_DURATION);
 	} else if ( cardEqual( (struct card*) &userCard, (struct card*) &deletingCard) ) {
+                Serial.print("deleting: ");
 		flashBlue(CARD_ADD_DEL_READY_SIGNAL_DURATION);
 	  	while( ! readCard(&userCard) );
+                printHex( (byte*) &userCard.id, CARD_ID_LENGTH);
                 deleteCard(&userCard);
+                Serial.println(" deleted.");
 	  	flashGreen(CARD_DEL_LED_FLASH_DURATION);
 	} else {
-	  	if ( checkCard( (struct card*) &userCard) )
-			unlockDoor(DOOR_UNLOCK_DURATION * 1000);
-	  	else 
+	  	if ( checkCard( (struct card*) &userCard) ) {
+			Serial.println("approved.");
+                        unlockDoor(DOOR_UNLOCK_DURATION * 1000);
+	  	} else {
+                        Serial.println("refused."); 
 			accessDenied();
+                }
 	}
   }
 
