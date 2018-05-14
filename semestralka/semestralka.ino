@@ -368,7 +368,7 @@ void loop()
 				Serial.println(" deleted.");
 	  			flashGreen(CARD_DEL_LED_FLASH_DURATION);
 			} else {
-				Serial.prinln(" not stored yet.");
+				Serial.println(" not stored yet.");
 				accessDenied();
 			}
 		}
@@ -450,7 +450,7 @@ void loop()
         			deleteCard(&userCard);
         			Serial.println("deleted.");
         		} else {
-        			Serial.println("not stored yet.")
+        			Serial.println("not stored yet.");
         		}
       	} else {
         		Serial.println("Invalid card string, try again.");
