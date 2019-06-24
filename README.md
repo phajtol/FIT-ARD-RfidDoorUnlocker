@@ -1,7 +1,7 @@
 # FIT-ARD-RfidDoorUnlocker
 
 
-This is a project created as a homework for subject Arduino (BI-ARD - Interaktivní aplikace s Arduinem) at FIT CTU.
+This is a project created as a semester work for subject Arduino (BI-ARD - Interaktivní aplikace s Arduinem) at FIT CTU.
 
 Full assignment is below.
 
